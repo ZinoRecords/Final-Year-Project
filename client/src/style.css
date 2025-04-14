@@ -1,0 +1,17 @@
+/* Ensure body and html cover the full viewport */
+html,
+body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+}
+
+/* Ensure the main app container also fills the screen */
+#app {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  display: flex; /* Optional: Helps align child elements */
+  flex-direction: column; /* Stack children vertically */
+}
