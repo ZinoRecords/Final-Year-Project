@@ -31,14 +31,15 @@ export default {
       this.isLogged = !this.isLogged; // Use `this` to refer to component properties
     },
     async onSuccessfulLogin() {
-      const res = await fetch("http://localhost:8000/api/whoami/", {
+      const res = await fetch("http://localhost:8000/app/whoami/", {
+        // Changed from /api/whoami/
         credentials: "include",
       });
 
       if (res.ok) {
         const user = await res.json();
         console.log("Logged in as:", user);
-        emit("login-successful");
+        this.$emit("login-successful"); // Added this.
       }
     },
   },

@@ -12,6 +12,7 @@
         <li @click="currentPage = 'MyList'"><a>My List</a></li>
         <li><a href="#community">Community</a></li>
         <li><a href="#news">News</a></li>
+        <li><a @click="handleLogout" class="logout-btn">Logout</a></li>
       </ul>
     </nav>
     <HomePage v-if="currentPage === 'Home'"></HomePage>
@@ -41,6 +42,53 @@ function onSuccessfulLogin() {
   isAuth.value = true;
   sessionStorage.setItem("isAuth", "true");
 }
+
+const getCSRFToken = () => {
+  const value = `; ${document.cookie}`;
+  const parts = value.split(`; csrftoken=`);
+  if (parts.length === 2) return parts.pop().split(";").shift();
+  return "";
+};
+
+async function handleLogout() {
+  try {
+    const response = await fetch("http://localhost:8000/app/logout/", {
+      method: "POST",
+      credentials: "include",
+      headers: {
+        "Content-Type": "application/json",
+        "X-CSRFToken": getCSRFToken(),
+      },
+    });
+
+    if (response.ok) {
+      // Clear session storage
+      sessionStorage.removeItem("isAuth");
+      sessionStorage.removeItem("currentPage");
+      // Reset auth state
+      isAuth.value = false;
+      // Reset current page
+      currentPage.value = "Home";
+    } else {
+      console.error("Logout failed");
+    }
+  } catch (error) {
+    console.error("Logout failed:", error);
+  }
+}
 </script>
 
 <style src="./components/HomePageStyle.css" scoped></style>
+
+<style scoped>
+/* Add these styles to your existing CSS */
+.logout-btn {
+  color: #ff69b4 !important; /* Using your existing pink color */
+  font-weight: bold !important;
+  cursor: pointer;
+}
+
+.logout-btn:hover {
+  color: #ff1493 !important; /* Darker pink on hover */
+}
+</style>

@@ -2,6 +2,7 @@ from rest_framework import serializers
 from django.contrib.auth.models import User
 from django.contrib.auth.hashers import check_password
 from django.contrib.auth import get_user_model
+from .models import Anime
 
 User = get_user_model()
 
@@ -58,3 +59,8 @@ class SignUpSerializer(serializers.ModelSerializer):
         user.set_password(validatedData['password'])
         user.save()
         return user
+
+class AnimeSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Anime
+        fields = ['id', 'name', 'description', 'imageURL', 'releaseDate', 'genre', 'rating', 'characters']

@@ -19,7 +19,6 @@
     <main class="container">
       <div class="header-container">
         <h1 class="page-title">My Favorite Anime</h1>
-        <button class="fetch-button" @click="fetchAnimes">Fetch Anime</button>
         <div style="position: relative">
           <button class="filter-button" @click="toggleDropdown">
             Sort by
@@ -50,7 +49,14 @@
           </div>
         </div>
       </div>
-      <div class="grid">
+
+      <div v-if="isLoading" class="loading">Loading your favorites...</div>
+      <div v-else-if="error" class="error">{{ error }}</div>
+      <div v-else-if="animeList.length === 0" class="no-favorites">
+        No favorite anime added yet.
+      </div>
+
+      <div v-else class="grid">
         <div
           v-for="anime in sortedAnimeList"
           :key="anime.id"
@@ -58,18 +64,21 @@
         >
           <div class="image-container">
             <img
-              v-if="anime.image"
-              :src="anime.image"
-              :alt="anime.title"
+              v-if="anime.imageURL"
+              :src="anime.imageURL"
+              :alt="anime.name"
               class="anime-image"
             />
             <div v-else class="no-image">No image found</div>
           </div>
-          <h2 class="anime-title">{{ anime.title }}</h2>
+          <h2 class="anime-title">{{ anime.name }}</h2>
           <div class="rating">
             <span class="star">★</span>
-            <span>{{ anime.rating.toFixed(1) }}</span>
+            <span>{{ anime.rating }}</span>
           </div>
+          <button @click="removeFromFavorites(anime.id)" class="remove-button">
+            Remove from Favorites
+          </button>
         </div>
       </div>
     </main>
@@ -88,19 +97,10 @@ export default {
         "Community",
         "News",
       ],
-      animeList: [
-        { id: 1, title: "Attack on Titan", rating: 9.0, image: "" },
-        { id: 2, title: "Death Note", rating: 8.6, image: "" },
-        {
-          id: 3,
-          title: "Fullmetal Alchemist: Brotherhood",
-          rating: 9.1,
-          image: "",
-        },
-        { id: 4, title: "One Punch Man", rating: 8.7, image: "" },
-        { id: 5, title: "My Hero Academia", rating: 8.4, image: "" },
-        { id: 6, title: "Demon Slayer", rating: 8.9, image: "" },
-      ],
+      animeList: [],
+      favoriteAnimes: [],
+      isLoading: false,
+      error: null,
       isDropdownVisible: false,
       sortCriteria: null,
       sortOrder: "asc",
@@ -151,8 +151,66 @@ export default {
         console.error(err);
       }
     },
+    async getFavorites() {
+      const response = await fetch("http://localhost:8000/app/favorites/", {
+        credentials: "include",
+      });
+      const data = await response.json();
+      return data;
+    },
+    async addToFavorites(animeId) {
+      const response = await fetch(
+        `http://localhost:8000/app/favorites/add/${animeId}/`,
+        {
+          method: "POST",
+          credentials: "include",
+        }
+      );
+      const data = await response.json();
+      return data;
+    },
+    async fetchFavorites() {
+      this.isLoading = true;
+      this.error = null;
+      try {
+        const response = await fetch("http://localhost:8000/app/favorites/", {
+          credentials: "include",
+        });
+        if (!response.ok) {
+          throw new Error("Failed to fetch favorites");
+        }
+        const data = await response.json();
+        this.animeList = data; // Update animeList with favorite animes
+      } catch (err) {
+        console.error("Error fetching favorites:", err);
+        this.error = "Failed to load favorite animes";
+      } finally {
+        this.isLoading = false;
+      }
+    },
+
+    async removeFromFavorites(animeId) {
+      try {
+        const response = await fetch(
+          `http://localhost:8000/app/favorites/remove/${animeId}/`,
+          {
+            method: "DELETE",
+            credentials: "include",
+          }
+        );
+        if (response.ok) {
+          // Remove the anime from the list
+          this.animeList = this.animeList.filter(
+            (anime) => anime.id !== animeId
+          );
+        }
+      } catch (err) {
+        console.error("Error removing from favorites:", err);
+      }
+    },
   },
   mounted() {
+    this.fetchFavorites();
     document.addEventListener("click", (event) => {
       if (
         !event.target.closest(".filter-button") &&
@@ -166,3 +224,31 @@ export default {
 </script>
 
 <style src="./MyListPage.css" scoped></style>
+
+<style scoped>
+.loading,
+.error,
+.no-favorites {
+  text-align: center;
+  padding: 2rem;
+  font-size: 1.2rem;
+}
+
+.error {
+  color: red;
+}
+
+.remove-button {
+  background-color: #ff4444;
+  color: white;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  cursor: pointer;
+  margin-top: 0.5rem;
+}
+
+.remove-button:hover {
+  background-color: #cc0000;
+}
+</style>
