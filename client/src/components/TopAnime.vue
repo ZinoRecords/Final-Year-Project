@@ -41,7 +41,7 @@
           <div class="anime-image">
             <div
               class="favorite-btn"
-              @click.stop="toggleFavorite(anime.id)"
+              @click.stop="toggleFavorite(anime)"
               :title="favorites.has(anime.id) ? 'Unfavorite' : 'Favorite'"
             >
               <span :class="{ favorited: favorites.has(anime.id) }">★</span>
@@ -96,6 +96,12 @@ export default {
     setView(mode) {
       this.viewMode = mode;
     },
+    getCSRFToken() {
+      const value = `; ${document.cookie}`;
+      const parts = value.split(`; csrftoken=`);
+      if (parts.length === 2) return parts.pop().split(";").shift();
+      return "";
+    },
 
     async fetchAnime() {
       try {
@@ -114,21 +120,83 @@ export default {
           description: item.synopsis || "No description available.",
           image:
             item.images.webp?.image_url || item.images.jpg?.image_url || "",
+          genres: item.genres?.map((genre) => genre.name) || [],
         }));
       } catch (error) {
         console.error("Failed to fetch anime from Jikan:", error);
       }
     },
-    toggleFavorite(id) {
-      if (this.favorites.has(id)) {
-        this.favorites.delete(id);
+    async toggleFavorite(anime) {
+      if (this.favorites.has(anime.id)) {
+        this.favorites.delete(anime.id);
+        try {
+          const response = await fetch(
+            "http://localhost:8000/app/favorites/remove/",
+            {
+              method: "DELETE",
+              credentials: "include", // include cookies for session auth
+              headers: {
+                "Content-Type": "application/json",
+                "X-CSRFToken": this.getCSRFToken(), // include CSRF token
+              },
+              body: JSON.stringify({
+                name: anime.name,
+              }),
+            }
+          );
+          const data = await response.json();
+          console.log(data.message || data.error);
+        } catch (error) {
+          console.error("Request failed:", error);
+        }
       } else {
-        this.favorites.add(id);
+        this.favorites.add(anime.id);
+        const response = await fetch(
+          "http://localhost:8000/app/favorites/add/",
+          {
+            method: "POST",
+            credentials: "include", // include cookies for session auth
+            headers: {
+              "Content-Type": "application/json",
+              "X-CSRFToken": this.getCSRFToken(), // include CSRF token
+            },
+            body: JSON.stringify({
+              name: anime.name,
+              description: anime.description,
+              imageURL: anime.image,
+              releaseDate: anime.releaseYear, // should be in 'YYYY-MM-DD' format
+              genre: anime.genres,
+              rating: anime.rating,
+              characters: anime.characters || [],
+              id: anime.id,
+            }),
+          }
+        )
+          .then((response) => response.json())
+          .then((data) => {
+            console.log(data.message || data.error);
+          })
+          .catch((error) => {
+            console.error("Request failed:", error);
+          });
+      }
+      console.log(this.favorites);
+    },
+    async getFavorites() {
+      try {
+        const response = await fetch("http://localhost:8000/app/favorites/", {
+          credentials: "include",
+        });
+        const data = await response.json();
+        this.favorites = new Set(data.map((anime) => anime.id));
+      } catch (error) {
+        console.error("Failed to fetch favorites:", error);
       }
     },
   },
   mounted() {
     this.fetchAnime();
+    this.getFavorites();
   },
 };
 </script>

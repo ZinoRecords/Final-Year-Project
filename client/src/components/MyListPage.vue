@@ -156,6 +156,7 @@ export default {
         credentials: "include",
       });
       const data = await response.json();
+      print(data);
       return data;
     },
     async addToFavorites(animeId) {
@@ -180,7 +181,8 @@ export default {
           throw new Error("Failed to fetch favorites");
         }
         const data = await response.json();
-        this.animeList = data; // Update animeList with favorite animes
+        this.animeList = data;
+        console.log(this.animeList); // Update animeList with favorite animes
       } catch (err) {
         console.error("Error fetching favorites:", err);
         this.error = "Failed to load favorite animes";

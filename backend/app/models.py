@@ -12,13 +12,13 @@ class AnimeUser(AbstractUser):
 
 class Anime(models.Model):
     # Table 'Anime'
-    id = models.AutoField(primary_key=True)
+    id = models.IntegerField(primary_key=True)
     name = models.TextField()
     description = models.TextField()
     imageURL = models.URLField(verbose_name='URL to the anime image')
     releaseDate = models.DateField()
     genre = models.TextField()
-    rating = models.IntegerField()
+    rating = models.DecimalField(max_digits=3, decimal_places=1)
     characters = models.TextField()
 
     def __str__(self):
