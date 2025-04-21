@@ -8,7 +8,7 @@
       <ul>
         <li><a @click="currentPage = 'TopAnime'">Top Anime</a></li>
         <li><a href="#new-releases">New Releases</a></li>
-        <li><a href="#genres">Genres</a></li>
+        <li @click="currentPage = 'Genre'"><a>Genres</a></li>
         <li @click="currentPage = 'MyList'"><a>My List</a></li>
         <li><a href="#community">Community</a></li>
         <li><a href="#news">News</a></li>
@@ -18,6 +18,7 @@
     <HomePage v-if="currentPage === 'Home'"></HomePage>
     <MyListPage v-if="currentPage === 'MyList'"></MyListPage>
     <TopAnime v-if="currentPage === 'TopAnime'"></TopAnime>
+    <GenrePage v-if="currentPage === 'Genre'"></GenrePage>
   </div>
 </template>
 
@@ -29,6 +30,7 @@ import HomePage from "./components/HomePage.vue";
 import LoginPage from "./components/LoginPage.vue";
 import MyListPage from "./components/MyListPage.vue";
 import TopAnime from "./components/TopAnime.vue";
+import GenrePage from "./components/Genres.vue";
 
 const isAuth = ref(sessionStorage.getItem("isAuth") === "true");
 const defaultPage = sessionStorage.getItem("currentPage") || "Home";

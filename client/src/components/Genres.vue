@@ -1,27 +1,13 @@
 <template>
   <div>
-    <nav class="navbar">
-      <div class="nav-container">
-        <div class="nav-links">
-          <a href="#">Top Anime</a>
-          <a href="#" class="active">New Releases</a>
-          <a href="#">Genres</a>
-          <a href="#">My List</a>
-          <a href="#">Community</a>
-          <a href="#">News</a>
-        </div>
-        <a href="#" class="logout">Logout</a>
-      </div>
-    </nav>
-
     <div class="container">
       <header class="main-header">
         <h1>AnimeWorld</h1>
         <div class="search-container">
           <input
+            v-model="searchTerm"
             type="text"
             placeholder="Search anime..."
-            v-model="searchTerm"
             @keypress.enter="performSearch"
           />
           <button @click="performSearch">🔍</button>
@@ -34,15 +20,22 @@
         <div class="view-controls">
           <div class="view-toggle">
             <span>View:</span>
-            <button :class="{ active: view === 'list' }" @click="view = 'list'">
+            <button
+              :class="{ active: viewMode === 'list' }"
+              @click="viewMode = 'list'"
+            >
               List
             </button>
-            <button :class="{ active: view === 'grid' }" @click="view = 'grid'">
+            <button
+              :class="{ active: viewMode === 'grid' }"
+              @click="viewMode = 'grid'"
+            >
               Grid
             </button>
           </div>
         </div>
 
+        <!-- Featured -->
         <section class="anime-section">
           <h3 class="section-heading">Featured Anime</h3>
           <div class="slider-container">
@@ -54,11 +47,40 @@
             </button>
             <div class="anime-slider featured" ref="featured">
               <div
+                class="anime-card"
                 v-for="anime in featuredAnimes"
                 :key="anime.id"
-                class="anime-card"
-                v-html="createAnimeCard(anime)"
-              ></div>
+              >
+                <div class="anime-image">
+                  <img
+                    :src="anime.image"
+                    :alt="anime.title"
+                    @error="handleImgError($event)"
+                  />
+                  <div class="anime-type">{{ anime.type }}</div>
+                  <div v-if="anime.newEpisode" class="new-episode">
+                    New Episode
+                  </div>
+                </div>
+                <div class="anime-details">
+                  <h4 class="anime-title">{{ anime.title }}</h4>
+                  <div class="anime-meta">
+                    <span>{{ anime.year }}</span>
+                    <span class="separator"></span>
+                    <span>{{ anime.episodes }} eps</span>
+                  </div>
+                  <div class="anime-genres">
+                    <span
+                      class="genre-tag"
+                      v-for="(genre, index) in anime.genres.slice(0, 2)"
+                      :key="index"
+                    >
+                      {{ genre }}
+                    </span>
+                  </div>
+                  <div class="anime-rating">{{ anime.rating }}/10</div>
+                </div>
+              </div>
             </div>
             <button
               class="slider-btn next-btn"
@@ -69,33 +91,65 @@
           </div>
         </section>
 
+        <!-- Genre Sections -->
         <section
-          class="anime-section"
-          v-for="genre in genreSections"
+          v-for="genre in genres"
           :key="genre.name"
+          class="anime-section"
         >
           <div class="section-header">
             <h3 class="section-heading">{{ genre.name }}</h3>
-            <a :href="`/genre/${genre.slug}`" class="view-all">View All</a>
+            <a :href="`/genre/${genre.name.toLowerCase()}`" class="view-all"
+              >View All</a
+            >
           </div>
           <div class="slider-container">
             <button
               class="slider-btn prev-btn"
-              @click="scrollSlider(genre.slug, -1)"
+              @click="scrollSlider(genre.name.toLowerCase(), -1)"
             >
               ◀
             </button>
-            <div class="anime-slider" :ref="genre.slug">
+            <div class="anime-slider" :ref="genre.name.toLowerCase()">
               <div
-                v-for="anime in genre.animes"
-                :key="anime.id"
                 class="anime-card"
-                v-html="createAnimeCard(anime)"
-              ></div>
+                v-for="anime in getAnimesByGenre(genre.name)"
+                :key="anime.id"
+              >
+                <div class="anime-image">
+                  <img
+                    :src="anime.image"
+                    :alt="anime.title"
+                    @error="handleImgError($event)"
+                  />
+                  <div class="anime-type">{{ anime.type }}</div>
+                  <div v-if="anime.newEpisode" class="new-episode">
+                    New Episode
+                  </div>
+                </div>
+                <div class="anime-details">
+                  <h4 class="anime-title">{{ anime.title }}</h4>
+                  <div class="anime-meta">
+                    <span>{{ anime.year }}</span>
+                    <span class="separator"></span>
+                    <span>{{ anime.episodes }} eps</span>
+                  </div>
+                  <div class="anime-genres">
+                    <span
+                      class="genre-tag"
+                      v-for="(genre, index) in anime.genres.slice(0, 2)"
+                      :key="index"
+                    >
+                      {{ genre }}
+                    </span>
+                  </div>
+                  <div class="anime-rating">{{ anime.rating }}/10</div>
+                </div>
+              </div>
             </div>
             <button
               class="slider-btn next-btn"
-              @click="scrollSlider(genre.slug, 1)"
+              @click="scrollSlider(genre.name.toLowerCase(), 1)"
             >
               ▶
             </button>
@@ -107,72 +161,107 @@
 </template>
 
 <script>
-import animeData from "./animeData";
-
 export default {
   data() {
     return {
       searchTerm: "",
-      view: "list",
+      viewMode: "list",
+      genres: [
+        { name: "Action", id: 1 },
+        { name: "Romance", id: 22 },
+        { name: "Fantasy", id: 10 },
+        { name: "Sci-Fi", id: 24 },
+      ],
+      placeholderImg:
+        "https://placehold.co/320x200/8a2be2/ffffff?text=No+Image",
+      genreData: {},
+      featuredAnimes: [],
     };
-  },
-  computed: {
-    featuredAnimes() {
-      return animeData.filter((anime) => anime.featured);
-    },
-    genreSections() {
-      const genres = ["Action", "Romance", "Fantasy", "Sci-Fi"];
-      return genres.map((name) => ({
-        name,
-        slug: name.toLowerCase().replace(/ /g, "-"),
-        animes: animeData.filter((anime) => anime.genres.includes(name)),
-      }));
-    },
   },
   methods: {
     performSearch() {
-      alert(`Searching for: ${this.searchTerm}`);
+      const term = this.searchTerm.trim().toLowerCase();
+      if (term) alert(`Searching for: ${term}`);
+    },
+    getAnimesByGenre(genreName) {
+      return this.genreData[genreName] || [];
     },
     scrollSlider(refName, direction) {
-      const slider = this.$refs[refName];
-      if (slider && slider[0]) {
-        const scrollAmount = direction * (slider[0].clientWidth * 0.8);
-        slider[0].scrollBy({
-          left: scrollAmount,
-          behavior: "smooth",
-        });
+      let slider = this.$refs[refName];
+
+      // If the ref is an array (e.g., multiple v-for refs), get the first one
+      if (Array.isArray(slider)) {
+        slider = slider[0];
+      }
+
+      if (slider) {
+        const scrollAmount = direction * (slider.clientWidth * 0.8);
+        slider.scrollBy({ left: scrollAmount, behavior: "smooth" });
       }
     },
-    createAnimeCard(anime) {
-      return `
-          <div class="anime-image">
-            <img src="${anime.image}" alt="${anime.title}">
-            <div class="anime-type">${anime.type}</div>
-            ${
-              anime.newEpisode
-                ? '<div class="new-episode">New Episode</div>'
-                : ""
-            }
-          </div>
-          <div class="anime-details">
-            <h4 class="anime-title">${anime.title}</h4>
-            <div class="anime-meta">
-              <span>${anime.year}</span>
-              <span class="separator"></span>
-              <span>${anime.episodes} eps</span>
-            </div>
-            <div class="anime-genres">
-              ${anime.genres
-                .slice(0, 2)
-                .map((genre) => `<span class="genre-tag">${genre}</span>`)
-                .join("")}
-            </div>
-            <div class="anime-rating">${anime.rating}/10</div>
-          </div>
-        `;
+
+    handleImgError(event) {
+      event.target.onerror = null;
+      event.target.src = this.placeholderImg;
+    },
+    async fetchGenreAnimes(genre) {
+      try {
+        const response = await fetch(
+          `https://api.jikan.moe/v4/anime?genres=${genre.id}&limit=10&order_by=popularity`
+        );
+        const data = await response.json();
+        this.genreData[genre.name] = data.data.map((anime) => ({
+          id: anime.mal_id,
+          title: anime.title,
+          image: anime.images.jpg.image_url,
+          type: anime.type,
+          episodes: anime.episodes || "N/A",
+          year: anime.aired?.from
+            ? new Date(anime.aired.from).getFullYear()
+            : "N/A",
+          genres: anime.genres.map((g) => g.name),
+          rating: anime.score || "N/A",
+          newEpisode: false,
+        }));
+      } catch (error) {
+        console.error(`Error fetching anime for genre ${genre.name}:`, error);
+      }
+    },
+    async fetchFeaturedAnimes() {
+      try {
+        const response = await fetch(
+          `https://api.jikan.moe/v4/top/anime?limit=10`
+        );
+        const data = await response.json();
+        this.featuredAnimes = data.data.map((anime) => ({
+          id: anime.mal_id,
+          title: anime.title,
+          image: anime.images.jpg.image_url,
+          type: anime.type,
+          episodes: anime.episodes || "N/A",
+          year: anime.aired?.from
+            ? new Date(anime.aired.from).getFullYear()
+            : "N/A",
+          genres: anime.genres.map((g) => g.name),
+          rating: anime.score || "N/A",
+          newEpisode: false,
+        }));
+      } catch (error) {
+        console.error("Error fetching featured animes:", error);
+      }
     },
   },
+  async mounted() {
+    await this.fetchFeaturedAnimes();
+    for (const genre of this.genres) {
+      await delay(700);
+      await this.fetchGenreAnimes(genre);
+    }
+  },
 };
+function delay(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
 </script>
 
 <style scoped>
