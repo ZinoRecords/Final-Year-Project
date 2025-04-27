@@ -254,7 +254,7 @@ export default {
   async mounted() {
     await this.fetchFeaturedAnimes();
     for (const genre of this.genres) {
-      await delay(700);
+      await delay(600);
       await this.fetchGenreAnimes(genre);
     }
   },

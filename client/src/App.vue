@@ -17,8 +17,16 @@
     </nav>
     <HomePage v-if="currentPage === 'Home'"></HomePage>
     <MyListPage v-if="currentPage === 'MyList'"></MyListPage>
-    <TopAnime v-if="currentPage === 'TopAnime'"></TopAnime>
+    <TopAnime
+      v-if="currentPage === 'TopAnime'"
+      @getAnimeOverview="showAnimeOverview"
+    ></TopAnime>
     <GenrePage v-if="currentPage === 'Genre'"></GenrePage>
+    <AnimeOverview
+      v-if="currentPage === 'AnimeOverview'"
+      :animeID="selectedAnime"
+      @goBack="currentPage = prevPage"
+    ></AnimeOverview>
   </div>
 </template>
 
@@ -31,10 +39,16 @@ import LoginPage from "./components/LoginPage.vue";
 import MyListPage from "./components/MyListPage.vue";
 import TopAnime from "./components/TopAnime.vue";
 import GenrePage from "./components/Genres.vue";
+import AnimeOverview from "./components/AnimeOverview.vue";
 
 const isAuth = ref(sessionStorage.getItem("isAuth") === "true");
 const defaultPage = sessionStorage.getItem("currentPage") || "Home";
 const currentPage = ref(defaultPage);
+
+const selectedAnime = ref(
+  Number(sessionStorage.getItem("selectedAnime")) || null
+);
+const prevPage = ref(null);
 
 watchEffect(() => {
   sessionStorage.setItem("currentPage", currentPage.value);
@@ -51,6 +65,13 @@ const getCSRFToken = () => {
   if (parts.length === 2) return parts.pop().split(";").shift();
   return "";
 };
+
+function showAnimeOverview(animeID) {
+  prevPage.value = currentPage.value;
+  selectedAnime.value = animeID;
+  currentPage.value = "AnimeOverview";
+  sessionStorage.setItem("selectedAnime", animeID);
+}
 
 async function handleLogout() {
   try {

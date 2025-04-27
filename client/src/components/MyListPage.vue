@@ -76,7 +76,7 @@
             <span class="star">★</span>
             <span>{{ anime.rating }}</span>
           </div>
-          <button @click="removeFromFavorites(anime.id)" class="remove-button">
+          <button @click="removeFromFavorites(anime)" class="remove-button">
             Remove from Favorites
           </button>
         </div>
@@ -121,6 +121,12 @@ export default {
     },
   },
   methods: {
+    getCSRFToken() {
+      const value = `; ${document.cookie}`;
+      const parts = value.split(`; csrftoken=`);
+      if (parts.length === 2) return parts.pop().split(";").shift();
+      return "";
+    },
     toggleDropdown() {
       this.isDropdownVisible = !this.isDropdownVisible;
     },
@@ -136,21 +142,7 @@ export default {
       }
       this.isDropdownVisible = false;
     },
-    async fetchAnimes() {
-      try {
-        const response = await fetch("https://api.jikan.moe/v4/anime?limit=20"); // Fetch only 20 anime
-        const data = await response.json();
-        this.apiTest = data.data.map((anime) => ({
-          id: anime.mal_id,
-          title: anime.title,
-          rating: anime.score || "N/A",
-          image: anime.images.jpg.image_url || "",
-        })); // Store fetched anime list
-        console.log(this.apiTest);
-      } catch (err) {
-        console.error(err);
-      }
-    },
+
     async getFavorites() {
       const response = await fetch("http://localhost:8000/app/favorites/", {
         credentials: "include",
@@ -159,17 +151,7 @@ export default {
       print(data);
       return data;
     },
-    async addToFavorites(animeId) {
-      const response = await fetch(
-        `http://localhost:8000/app/favorites/add/${animeId}/`,
-        {
-          method: "POST",
-          credentials: "include",
-        }
-      );
-      const data = await response.json();
-      return data;
-    },
+
     async fetchFavorites() {
       this.isLoading = true;
       this.error = null;
@@ -191,24 +173,28 @@ export default {
       }
     },
 
-    async removeFromFavorites(animeId) {
+    async removeFromFavorites(anime) {
       try {
         const response = await fetch(
-          `http://localhost:8000/app/favorites/remove/${animeId}/`,
+          "http://localhost:8000/app/favorites/remove/",
           {
             method: "DELETE",
             credentials: "include",
+            headers: {
+              "Content-Type": "application/json",
+              "X-CSRFToken": this.getCSRFToken(),
+            },
+            body: JSON.stringify({
+              name: anime.name,
+            }),
           }
         );
-        if (response.ok) {
-          // Remove the anime from the list
-          this.animeList = this.animeList.filter(
-            (anime) => anime.id !== animeId
-          );
-        }
-      } catch (err) {
-        console.error("Error removing from favorites:", err);
+        const data = await response.json();
+        console.log(data.message || data.error);
+      } catch (error) {
+        console.error("Request failed:", error);
       }
+      this.fetchFavorites();
     },
   },
   mounted() {

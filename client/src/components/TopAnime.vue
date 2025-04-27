@@ -37,7 +37,12 @@
           viewMode === 'grid' ? 'grid-view' : 'list-view',
         ]"
       >
-        <div v-for="anime in filteredAnime" :key="anime.id" class="anime-card">
+        <div
+          v-for="anime in filteredAnime"
+          :key="anime.id"
+          class="anime-card"
+          @click="getAnimeOverview(anime.id)"
+        >
           <div class="anime-image">
             <div
               class="favorite-btn"
@@ -103,6 +108,10 @@ export default {
       return "";
     },
 
+    getAnimeOverview(animeID) {
+      this.$emit("getAnimeOverview", animeID);
+    },
+
     async fetchAnime() {
       try {
         const response = await fetch(
@@ -134,10 +143,10 @@ export default {
             "http://localhost:8000/app/favorites/remove/",
             {
               method: "DELETE",
-              credentials: "include", // include cookies for session auth
+              credentials: "include",
               headers: {
                 "Content-Type": "application/json",
-                "X-CSRFToken": this.getCSRFToken(), // include CSRF token
+                "X-CSRFToken": this.getCSRFToken(),
               },
               body: JSON.stringify({
                 name: anime.name,
