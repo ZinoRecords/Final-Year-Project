@@ -23,23 +23,22 @@ export default {
   },
   data() {
     return {
-      isLogged: false, // Correctly initialize this property in the `data` object
+      isLogged: false,
     };
   },
   methods: {
     togglePage() {
-      this.isLogged = !this.isLogged; // Use `this` to refer to component properties
+      this.isLogged = !this.isLogged;
     },
     async onSuccessfulLogin() {
       const res = await fetch("http://localhost:8000/app/whoami/", {
-        // Changed from /api/whoami/
         credentials: "include",
       });
 
       if (res.ok) {
         const user = await res.json();
         console.log("Logged in as:", user);
-        this.$emit("login-successful"); // Added this.
+        this.$emit("login-successful");
       }
     },
   },

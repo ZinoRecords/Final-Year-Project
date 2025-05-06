@@ -23,6 +23,7 @@
         placeholder="Password"
         required
       />
+      <p v-if="errorMessage" class="errorMsg">{{ errorMessage }}</p>
 
       <button type="submit" id="loginBtn">Sign Up</button>
       <button @click="$emit('toggle')">Go to Login</button>
@@ -43,11 +44,12 @@ export default {
   methods: {
     async handleSignUp() {
       try {
-        const response = await fetch(`http://localhost:8000/app/signUp`, {
+        const response = await fetch(`http://localhost:8000/app/signUp/`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
           },
+          credentials: "include",
           body: JSON.stringify({
             username: this.username,
             password: this.password,
@@ -60,13 +62,14 @@ export default {
 
         if (data.success) {
           console.log("Successfully created account");
+          this.errorMessage = "";
           this.$emit("signUp-successful");
-        } else if (data.errorMessage.username) {
-          console.log("Used username");
-          alert(data.errorMessage.username);
         } else {
-          console.log("Used email");
-          alert(data.errorMessage.errorMessage);
+          if (data.errorMessage.username) {
+            this.errorMessage = data.errorMessage.username[0];
+          } else {
+            this.errorMessage = "Not sure tbh";
+          }
         }
       } catch (err) {
         console.error(err);

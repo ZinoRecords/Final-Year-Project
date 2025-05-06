@@ -1,81 +1,100 @@
 <template>
-  <Authentication
-    v-if="!isAuth"
-    @login-successful="onSuccessfulLogin"
-  ></Authentication>
+  <Authentication v-if="!loggedIn" @login-successful="onLogin" />
   <div v-else>
     <nav>
       <ul>
-        <li><a @click="currentPage = 'TopAnime'">Top Anime</a></li>
-        <li><a href="#new-releases">New Releases</a></li>
-        <li @click="currentPage = 'Genre'"><a>Genres</a></li>
-        <li @click="currentPage = 'MyList'"><a>My List</a></li>
-        <li><a href="#community">Community</a></li>
-        <li><a href="#news">News</a></li>
-        <li><a @click="handleLogout" class="logout-btn">Logout</a></li>
+        <li><a @click="currentView = 'TopAnime'">Top Anime</a></li>
+        <li @click="currentView = 'NewReleases'"><a>New Releases</a></li>
+        <li @click="currentView = 'Genre'"><a>Genres</a></li>
+        <li @click="currentView = 'MyList'"><a>My List</a></li>
+        <li @click="currentView = 'HomePage'"><a>Home</a></li>
+        <li><a @click="logoutUser" class="logout-btn">Logout</a></li>
       </ul>
     </nav>
-    <HomePage v-if="currentPage === 'Home'"></HomePage>
-    <MyListPage v-if="currentPage === 'MyList'"></MyListPage>
+
+    <HomePage v-if="currentView === 'HomePage'" />
+    <MyListPage v-if="currentView === 'MyList'" />
     <TopAnime
-      v-if="currentPage === 'TopAnime'"
-      @getAnimeOverview="showAnimeOverview"
-    ></TopAnime>
-    <GenrePage v-if="currentPage === 'Genre'"></GenrePage>
+      v-if="currentView === 'TopAnime'"
+      @getAnimeOverview="openAnimeDetails"
+    />
+    <GenrePage
+      v-if="currentView === 'Genre'"
+      @getAnimeOverview="openAnimeDetails"
+      @getGenrePage="openGenreDetails"
+    />
+    <NewReleases
+      v-if="currentView === 'NewReleases'"
+      @getAnimeOverview="openAnimeDetails"
+    />
     <AnimeOverview
-      v-if="currentPage === 'AnimeOverview'"
+      v-if="currentView === 'AnimeOverview'"
       :animeID="selectedAnime"
-      @goBack="currentPage = prevPage"
-    ></AnimeOverview>
+      @goBack="currentView = previousPage"
+    />
+    <GenreDisplay
+      v-if="currentView === 'GenreDisplay'"
+      :genreId="selectedGenre"
+      @goBack="currentView = previousPage"
+    />
   </div>
 </template>
 
 <script setup>
 import { ref, watchEffect } from "vue";
-import HelloWorld from "./components/HelloWorld.vue";
 import Authentication from "./components/Authentication.vue";
 import HomePage from "./components/HomePage.vue";
-import LoginPage from "./components/LoginPage.vue";
 import MyListPage from "./components/MyListPage.vue";
 import TopAnime from "./components/TopAnime.vue";
 import GenrePage from "./components/Genres.vue";
 import AnimeOverview from "./components/AnimeOverview.vue";
+import NewReleases from "./components/NewReleases.vue";
+import GenreDisplay from "./components/GenreDisplay.vue";
 
-const isAuth = ref(sessionStorage.getItem("isAuth") === "true");
-const defaultPage = sessionStorage.getItem("currentPage") || "Home";
-const currentPage = ref(defaultPage);
-
+const loggedIn = ref(sessionStorage.getItem("isAuth") === "true");
 const selectedAnime = ref(
-  Number(sessionStorage.getItem("selectedAnime")) || null
+  parseInt(sessionStorage.getItem("selectedAnime")) || null
 );
-const prevPage = ref(null);
+const selectedGenre = ref(
+  parseInt(sessionStorage.getItem("selectedGenre")) || null
+);
+
+const previousPage = ref(null);
+
+let defaultView = sessionStorage.getItem("currentPage") || "HomePage";
+const currentView = ref(defaultView);
 
 watchEffect(() => {
-  sessionStorage.setItem("currentPage", currentPage.value);
+  sessionStorage.setItem("currentPage", currentView.value);
 });
 
-function onSuccessfulLogin() {
-  isAuth.value = true;
+function onLogin() {
+  loggedIn.value = true;
   sessionStorage.setItem("isAuth", "true");
 }
 
-const getCSRFToken = () => {
-  const value = `; ${document.cookie}`;
-  const parts = value.split(`; csrftoken=`);
-  if (parts.length === 2) return parts.pop().split(";").shift();
-  return "";
-};
-
-function showAnimeOverview(animeID) {
-  prevPage.value = currentPage.value;
-  selectedAnime.value = animeID;
-  currentPage.value = "AnimeOverview";
-  sessionStorage.setItem("selectedAnime", animeID);
+function getCSRFToken() {
+  const tokenParts = `; ${document.cookie}`.split(`; csrftoken=`);
+  return tokenParts.length === 2 ? tokenParts.pop().split(";").shift() : "";
 }
 
-async function handleLogout() {
+function openAnimeDetails(animeId) {
+  previousPage.value = currentView.value;
+  selectedAnime.value = animeId;
+  currentView.value = "AnimeOverview";
+  sessionStorage.setItem("selectedAnime", animeId);
+}
+
+function openGenreDetails(genreId) {
+  previousPage.value = currentView.value;
+  selectedGenre.value = genreId;
+  currentView.value = "GenreDisplay";
+  sessionStorage.setItem("selectedGenre", genreId);
+}
+
+async function logoutUser() {
   try {
-    const response = await fetch("http://localhost:8000/app/logout/", {
+    const res = await fetch("http://localhost:8000/app/logout/", {
       method: "POST",
       credentials: "include",
       headers: {
@@ -84,34 +103,18 @@ async function handleLogout() {
       },
     });
 
-    if (response.ok) {
-      // Clear session storage
+    if (res.ok) {
       sessionStorage.removeItem("isAuth");
       sessionStorage.removeItem("currentPage");
-      // Reset auth state
-      isAuth.value = false;
-      // Reset current page
-      currentPage.value = "Home";
+      loggedIn.value = false;
+      currentView.value = "HomePage";
     } else {
-      console.error("Logout failed");
+      console.warn("Logout didn't work as expected.");
     }
-  } catch (error) {
-    console.error("Logout failed:", error);
+  } catch (err) {
+    console.error("Something broke during logout:", err);
   }
 }
 </script>
 
 <style src="./components/HomePageStyle.css" scoped></style>
-
-<style scoped>
-/* Add these styles to your existing CSS */
-.logout-btn {
-  color: #ff69b4 !important; /* Using your existing pink color */
-  font-weight: bold !important;
-  cursor: pointer;
-}
-
-.logout-btn:hover {
-  color: #ff1493 !important; /* Darker pink on hover */
-}
-</style>

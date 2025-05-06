@@ -7,51 +7,55 @@ from .models import Anime
 User = get_user_model()
 
 class LoginSerializer(serializers.Serializer):
+
     username = serializers.CharField()
     password = serializers.CharField(write_only=True)
 
     def validate(self, data):
         User = get_user_model()
+
         username = data.get('username')
         password = data.get('password')
-        print(f'username: {username}, password: {password}')
-        print(User.objects.all())
 
 
-        # Retrieve the user by the provided username
+        # Check if username exists
         try:
             user = User.objects.get(username=username)
-            print(user)
         except User.DoesNotExist:
-            print('In user does not exist')
             raise serializers.ValidationError("Incorrect username or password")
 
-        # Verify the password manually using Django's password checker
+        # If user exists, check password
         if not check_password(password, user.password):
-            print('In check password')
             raise serializers.ValidationError("Incorrect username or password")
 
         return {"user": user}
 
 class SignUpSerializer(serializers.ModelSerializer):
+
     class Meta:
+
         model = get_user_model()
         fields = ['username','password','email']
 
     def validate(self, data):
 
+        # Checks if email is already in use
+
         if User.objects.filter(email=data['email']).exists():
-            print('In the email checker')
-            raise serializers.ValidationError({"errorMessage": "An account with this email already exists"})
+            raise serializers.ValidationError({"username": "An account with this email already exists"})
+
+        # Checks is username is already in use
 
         if User.objects.filter(username=data['username']).exists():
-            print('In the username checker')
-            raise serializers.ValidationError({"errorMessage": "A user with this username already exists"})
+            raise serializers.ValidationError({"errorMessage": "An account with this username already exists"})
             
         return data
             
     
     def create(self, validatedData):
+        
+        # Create a new user in the database
+
         user = User.objects.create(
             username = validatedData['username'],
             email = validatedData['email']

@@ -1,15 +1,5 @@
 <template>
   <div>
-    <!-- <nav>
-      <ul>
-        <li><a href="#popular">Popular</a></li>
-        <li><a href="#new-releases">New Releases</a></li>
-        <li><a href="#genres">Genres</a></li>
-        <li><a href="#my-list">My List</a></li>
-        <li><a href="#community">Community</a></li>
-        <li><a href="#news">News</a></li>
-      </ul>
-    </nav> -->
     <div class="container">
       <header>
         <h1>AnimeWorld</h1>
@@ -24,7 +14,7 @@
         </div>
       </header>
       <main>
-        <h2>Welcome!</h2>
+        <h2>Welcome {{ username }}!</h2>
         <div class="grid-container">
           <a href="#popular" class="grid-item">Popular</a>
           <a href="#new-releases" class="grid-item">New Releases</a>
@@ -44,16 +34,31 @@ export default {
   data() {
     return {
       searchTerm: "",
+      username: "",
     };
   },
   methods: {
     performSearch() {
       if (this.searchTerm.trim()) {
         alert(`Searching for: ${this.searchTerm}`);
-        // Here you would typically send the search term to a backend API
-        // and display the results on the page
       }
     },
+
+    async getName() {
+      const res = await fetch("http://localhost:8000/app/whoami/", {
+        credentials: "include",
+      });
+
+      if (res.ok) {
+        const user = await res.json();
+        this.username = user.username;
+        this.$emit("login-successful");
+      }
+    },
+  },
+
+  mounted() {
+    this.getName();
   },
 };
 </script>

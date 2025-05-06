@@ -16,6 +16,7 @@
         placeholder="Password"
         required
       />
+      <p class="errorMsg" v-if="error">{{ error }}</p>
       <button type="submit" id="loginBtn">Log In</button>
       <button @click="$emit('toggle')" type="button" id="signupBtn">
         Go to Sign Up

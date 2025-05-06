@@ -52,3 +52,8 @@ button:hover {
 #signupBtn:hover {
   background-color: #9370db;
 }
+
+.errorMsg {
+  color: red;
+  margin-top: 1rem;
+}

@@ -1,6 +1,6 @@
 <template>
-  <div class="container">
-    <header>
+  <div class="top-anime-container">
+    <header class="main-header">
       <h1>AnimeWorld</h1>
       <div class="search-container">
         <input
@@ -13,28 +13,41 @@
     </header>
 
     <main>
-      <h2>Highest Rated Anime</h2>
+      <h2 class="section-title">Highest Rated Anime</h2>
 
-      <div class="view-toggle">
-        <span>View:</span>
-        <button
-          :class="{ active: viewMode === 'list' }"
-          @click="setView('list')"
-        >
-          List
-        </button>
-        <button
-          :class="{ active: viewMode === 'grid' }"
-          @click="setView('grid')"
-        >
-          Grid
-        </button>
+      <div class="view-controls">
+        <div class="view-toggle">
+          <span>View:</span>
+          <button
+            :class="{ active: viewMode === 'list' }"
+            @click="setView('list')"
+          >
+            List
+          </button>
+          <button
+            :class="{ active: viewMode === 'grid' }"
+            @click="setView('grid')"
+          >
+            Grid
+          </button>
+        </div>
+      </div>
+
+      <div v-if="loading" class="loading-container">
+        <div class="loading-spinner"></div>
+        <p>Loading anime...</p>
+      </div>
+
+      <div v-else-if="error" class="error-container">
+        <p>{{ error }}</p>
+        <button @click="fetchAnime" class="retry-button">Try Again</button>
       </div>
 
       <div
+        v-else
         :class="[
           'anime-container',
-          viewMode === 'grid' ? 'grid-view' : 'list-view',
+          viewMode === 'grid' ? 'anime-grid' : 'anime-list',
         ]"
       >
         <div
@@ -43,16 +56,25 @@
           class="anime-card"
           @click="getAnimeOverview(anime.id)"
         >
-          <div class="anime-image">
-            <div
-              class="favorite-btn"
-              @click.stop="toggleFavorite(anime)"
-              :title="favorites.has(anime.id) ? 'Unfavorite' : 'Favorite'"
-            >
-              <span :class="{ favorited: favorites.has(anime.id) }">★</span>
-            </div>
+          <div
+            class="favorite-btn"
+            @click.stop="toggleFavorite(anime)"
+            :title="
+              favorites.has(anime.id)
+                ? 'Remove from favorites'
+                : 'Add to favorites'
+            "
+          >
+            <span :class="{ favorited: favorites.has(anime.id) }">★</span>
+          </div>
 
-            <img :src="anime.image" alt="anime.name" />
+          <div class="anime-image">
+            <img
+              :src="anime.image"
+              :alt="anime.name"
+              @error="handleImgError($event)"
+            />
+            <div class="anime-type">{{ anime.type || "TV" }}</div>
           </div>
           <div class="anime-details">
             <h3 class="anime-title" :title="anime.name">{{ anime.name }}</h3>
@@ -60,15 +82,22 @@
             <div v-if="viewMode === 'list'" class="anime-meta">
               <span>{{ anime.episodes }} Episodes</span>
               <span class="separator"></span>
-              <span class="anime-rating">{{ anime.rating }}/10</span>
-              <span class="separator"></span>
               <span>Released: {{ anime.releaseYear }}</span>
             </div>
 
             <div v-if="viewMode === 'list'" class="anime-description">
               {{ anime.description }}
             </div>
-            <div v-else class="anime-rating">{{ anime.rating }}/10</div>
+
+            <div class="anime-stats">
+              <div class="anime-rating">
+                <span class="star-icon">★</span> {{ anime.rating }}
+              </div>
+              <div class="anime-members" v-if="anime.members">
+                <span class="members-icon">👥</span>
+                {{ formatMembers(anime.members) }}
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -84,6 +113,10 @@ export default {
       viewMode: "list",
       animeData: [],
       favorites: new Set(),
+      loading: true,
+      error: null,
+      placeholderImg:
+        "https://placehold.co/320x200/9333ea/ffffff?text=No+Image",
     };
   },
   computed: {
@@ -101,6 +134,7 @@ export default {
     setView(mode) {
       this.viewMode = mode;
     },
+
     getCSRFToken() {
       const value = `; ${document.cookie}`;
       const parts = value.split(`; csrftoken=`);
@@ -112,14 +146,36 @@ export default {
       this.$emit("getAnimeOverview", animeID);
     },
 
+    handleImgError(event) {
+      event.target.onerror = null;
+      event.target.src = this.placeholderImg;
+    },
+
+    formatMembers(members) {
+      if (!members) return "";
+      if (members >= 1000000) {
+        return (members / 1000000).toFixed(1) + "M";
+      } else if (members >= 1000) {
+        return (members / 1000).toFixed(1) + "K";
+      }
+      return members;
+    },
+
     async fetchAnime() {
+      this.loading = true;
+      this.error = null;
+
       try {
         const response = await fetch(
           "https://api.jikan.moe/v4/top/anime?limit=25"
         );
+
+        if (!response.ok) {
+          throw new Error(`Failed to fetch anime: ${response.status}`);
+        }
+
         const { data } = await response.json();
 
-        // Map Jikan API data to your internal format
         this.animeData = data.map((item, index) => ({
           id: item.mal_id || index,
           name: item.title,
@@ -130,11 +186,17 @@ export default {
           image:
             item.images.webp?.image_url || item.images.jpg?.image_url || "",
           genres: item.genres?.map((genre) => genre.name) || [],
+          type: item.type || "TV",
+          members: item.members || null,
         }));
       } catch (error) {
         console.error("Failed to fetch anime from Jikan:", error);
+        this.error = "Failed to load anime. Please try again later.";
+      } finally {
+        this.loading = false;
       }
     },
+
     async toggleFavorite(anime) {
       if (this.favorites.has(anime.id)) {
         this.favorites.delete(anime.id);
@@ -160,37 +222,36 @@ export default {
         }
       } else {
         this.favorites.add(anime.id);
-        const response = await fetch(
-          "http://localhost:8000/app/favorites/add/",
-          {
-            method: "POST",
-            credentials: "include", // include cookies for session auth
-            headers: {
-              "Content-Type": "application/json",
-              "X-CSRFToken": this.getCSRFToken(), // include CSRF token
-            },
-            body: JSON.stringify({
-              name: anime.name,
-              description: anime.description,
-              imageURL: anime.image,
-              releaseDate: anime.releaseYear, // should be in 'YYYY-MM-DD' format
-              genre: anime.genres,
-              rating: anime.rating,
-              characters: anime.characters || [],
-              id: anime.id,
-            }),
-          }
-        )
-          .then((response) => response.json())
-          .then((data) => {
-            console.log(data.message || data.error);
-          })
-          .catch((error) => {
-            console.error("Request failed:", error);
-          });
+        try {
+          const response = await fetch(
+            "http://localhost:8000/app/favorites/add/",
+            {
+              method: "POST",
+              credentials: "include",
+              headers: {
+                "Content-Type": "application/json",
+                "X-CSRFToken": this.getCSRFToken(),
+              },
+              body: JSON.stringify({
+                name: anime.name,
+                description: anime.description,
+                imageURL: anime.image,
+                releaseDate: anime.releaseYear,
+                genre: anime.genres,
+                rating: anime.rating,
+                characters: anime.characters || [],
+                id: anime.id,
+              }),
+            }
+          );
+          const data = await response.json();
+          console.log(data.message || data.error);
+        } catch (error) {
+          console.error("Request failed:", error);
+        }
       }
-      console.log(this.favorites);
     },
+
     async getFavorites() {
       try {
         const response = await fetch("http://localhost:8000/app/favorites/", {
@@ -217,275 +278,284 @@ export default {
   box-sizing: border-box;
 }
 
-html,
 body {
-  height: 100%;
   font-family: "Arial", sans-serif;
+  background-color: #f3e8ff;
 }
 
-body {
-  display: flex;
-  flex-direction: column;
-  background-image: linear-gradient(135deg, #f8e1ff 0%, #e6e6fa 100%);
-}
-
-.container {
+.top-anime-container {
   max-width: 1200px;
   margin: 0 auto;
-  padding: 2rem;
-  background-color: rgba(255, 255, 255, 0.8);
+  padding: 2rem 1rem;
+  background-color: #f3e8ff;
   min-height: 100vh;
 }
 
-header {
+.main-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
   margin-bottom: 2rem;
+  flex-wrap: wrap;
 }
 
 h1 {
-  color: #8a2be2;
+  color: #9333ea;
   font-size: 2.5rem;
+  margin-bottom: 1rem;
 }
 
 .search-container {
   display: flex;
-  align-items: center;
+  max-width: 400px;
 }
 
-input {
-  padding: 0.5rem;
-  border: 1px solid #e6e6fa;
+.search-container input {
+  padding: 0.5rem 1rem;
+  border: 1px solid #ddd;
   border-radius: 4px 0 0 4px;
-  width: 250px;
+  width: 100%;
+  font-size: 1rem;
 }
 
-input:focus {
-  outline: none;
-  border-color: #8a2be2;
-}
-
-button {
-  background-color: #ff69b4;
+.search-container button {
+  background-color: #db2777;
   color: white;
   border: none;
   padding: 0.5rem 1rem;
   border-radius: 0 4px 4px 0;
   cursor: pointer;
-  transition: background-color 0.3s;
+  font-size: 1rem;
 }
 
-button:hover {
-  background-color: #ff1493;
+.search-container button:hover {
+  background-color: #be185d;
 }
 
-main {
-  flex-grow: 1;
-}
-
-h2 {
-  color: #8a2be2;
+.section-title {
+  color: #9333ea;
   font-size: 2rem;
-  margin-bottom: 2rem;
   text-align: center;
+  margin-bottom: 2rem;
+}
+
+.view-controls {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 2rem;
 }
 
 .view-toggle {
   display: flex;
-  justify-content: flex-end;
   align-items: center;
-  margin-bottom: 1.5rem;
+  gap: 0.5rem;
 }
 
 .view-toggle span {
-  margin-right: 0.5rem;
-  font-size: 0.9rem;
+  font-size: 1rem;
 }
 
 .view-toggle button {
   background-color: transparent;
-  color: #8a2be2;
-  border: 1px solid #8a2be2;
-  border-radius: 4px;
+  border: 1px solid #9333ea;
+  color: #9333ea;
   padding: 0.3rem 0.8rem;
-  margin-left: 0.5rem;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.view-toggle button:first-of-type {
+  border-radius: 4px 0 0 4px;
+}
+
+.view-toggle button:last-of-type {
+  border-radius: 0 4px 4px 0;
 }
 
 .view-toggle button.active {
-  background-color: #8a2be2;
+  background-color: #9333ea;
   color: white;
 }
 
-/* List View */
-.list-view .anime-card {
+.loading-container,
+.error-container {
   display: flex;
-  margin-bottom: 1.5rem;
-  background-color: white;
-  border-radius: 8px;
-  overflow: hidden;
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
-  transition: transform 0.3s, box-shadow 0.3s;
-}
-
-.list-view .anime-card:hover {
-  transform: translateY(-5px);
-  box-shadow: 0 5px 15px rgba(147, 112, 219, 0.2);
-}
-
-.list-view .anime-image {
-  width: 25%;
-  min-height: 200px;
-  background-image: linear-gradient(135deg, #f8e1ff 0%, #e6e6fa 100%);
-  display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  color: #8a2be2;
-  font-weight: 500;
+  padding: 3rem;
+  text-align: center;
 }
 
-.list-view .anime-image img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.list-view .anime-details {
-  padding: 1.5rem;
-  width: 75%;
-}
-
-.list-view .anime-title {
-  color: #8a2be2;
-  font-size: 1.5rem;
-  margin-bottom: 0.8rem;
-}
-
-.list-view .anime-meta {
-  display: flex;
-  align-items: center;
-  margin-bottom: 1rem;
-  font-size: 0.9rem;
-}
-
-.list-view .anime-meta .separator {
-  display: inline-block;
-  width: 6px;
-  height: 6px;
-  background-color: #ff69b4;
+.loading-spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid rgba(147, 51, 234, 0.2);
   border-radius: 50%;
-  margin: 0 0.8rem;
+  border-top-color: #9333ea;
+  animation: spin 1s ease-in-out infinite;
+  margin-bottom: 1rem;
 }
 
-.list-view .anime-rating {
-  color: #ff69b4;
-  font-weight: bold;
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
-.list-view .anime-description {
-  color: #555;
-  line-height: 1.5;
-  margin-top: 0.8rem;
+.retry-button {
+  margin-top: 1rem;
+  padding: 0.5rem 1rem;
+  background-color: #9333ea;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
 }
 
-/* Grid View */
-.grid-view {
+.retry-button:hover {
+  background-color: #7e22ce;
+}
+
+.anime-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
   gap: 1.5rem;
 }
 
-.grid-view .anime-card {
+.anime-list .anime-card {
+  display: flex;
+  margin-bottom: 1.5rem;
   background-color: white;
   border-radius: 8px;
   overflow: hidden;
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   transition: transform 0.3s, box-shadow 0.3s;
-  display: flex;
-  flex-direction: column;
 }
 
-.grid-view .anime-card:hover {
+.anime-list .anime-card:hover {
   transform: translateY(-5px);
-  box-shadow: 0 5px 15px rgba(147, 112, 219, 0.2);
+  box-shadow: 0 5px 15px rgba(147, 51, 234, 0.2);
 }
 
-.grid-view .anime-image {
-  height: 180px;
-  background-image: linear-gradient(135deg, #f8e1ff 0%, #e6e6fa 100%);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #8a2be2;
-  font-weight: 500;
+.anime-list .anime-image {
+  width: 25%;
+  min-height: 200px;
   position: relative;
+  background-color: #f0f0f0;
 }
 
-.grid-view .anime-image img {
+.anime-list .anime-image img {
   width: 100%;
   height: 100%;
   object-fit: cover;
 }
 
-.grid-view .anime-details {
-  padding: 1rem;
-  text-align: center;
-  display: flex;
-  flex-direction: column;
-  flex: 1;
+.anime-list .anime-details {
+  padding: 1.5rem;
+  width: 75%;
 }
 
-.grid-view .anime-title {
-  color: #8a2be2;
-  font-size: 1rem;
+.anime-list .anime-title {
+  color: #9333ea;
+  font-size: 1.5rem;
+  margin-bottom: 0.8rem;
+}
+
+.anime-list .anime-meta {
+  display: flex;
+  align-items: center;
+  margin-bottom: 1rem;
+  font-size: 0.9rem;
+  color: #666;
+}
+
+.anime-list .anime-meta .separator {
+  display: inline-block;
+  width: 4px;
+  height: 4px;
+  background-color: #db2777;
+  border-radius: 50%;
+  margin: 0 0.8rem;
+}
+
+.anime-list .anime-description {
+  color: #555;
+  line-height: 1.5;
+  margin-top: 0.8rem;
+  margin-bottom: 1rem;
+}
+
+.anime-grid .anime-card {
+  flex-shrink: 0;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  transition: transform 0.3s, box-shadow 0.3s;
+  background-color: white;
+  cursor: pointer;
+  position: relative;
+}
+
+.anime-grid .anime-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 5px 15px rgba(147, 51, 234, 0.2);
+}
+
+.anime-grid .anime-image {
+  position: relative;
+  height: 280px;
+  background-color: #f0f0f0;
+}
+
+.anime-grid .anime-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.anime-type {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background-color: #db2777;
+  color: white;
+  font-size: 0.75rem;
+  font-weight: bold;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+}
+
+.anime-grid .anime-details {
+  padding: 1rem;
+}
+
+.anime-grid .anime-title {
+  font-weight: bold;
+  color: #9333ea;
   margin-bottom: 0.5rem;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.grid-view .anime-rating {
-  color: #ff69b4;
-  font-weight: bold;
-  font-size: 0.9rem;
+.anime-stats {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 0.5rem;
 }
 
-.grid-view .anime-meta,
-.grid-view .anime-description {
-  display: none;
+.anime-rating,
+.anime-members {
+  font-size: 0.875rem;
+  color: #db2777;
+  font-weight: 500;
 }
 
-@media (max-width: 768px) {
-  header {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-
-  .search-container {
-    width: 100%;
-    margin-top: 1rem;
-  }
-
-  input {
-    width: 100%;
-  }
-
-  .list-view .anime-card {
-    flex-direction: column;
-  }
-
-  .list-view .anime-image {
-    width: 100%;
-    min-height: 150px;
-  }
-
-  .list-view .anime-details {
-    width: 100%;
-  }
-
-  .grid-view {
-    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-  }
+.star-icon,
+.members-icon {
+  font-size: 0.875rem;
+  margin-right: 0.25rem;
 }
 
 .favorite-btn {
@@ -501,7 +571,7 @@ h2 {
   border-radius: 6px;
   font-size: 1.2rem;
   cursor: pointer;
-  z-index: 5;
+  z-index: 10;
   user-select: none;
   box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
 }
@@ -513,5 +583,45 @@ h2 {
 
 .favorite-btn span.favorited {
   color: gold;
+}
+
+@media (max-width: 768px) {
+  .main-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .search-container {
+    width: 100%;
+    margin-top: 1rem;
+  }
+
+  .anime-list .anime-card {
+    flex-direction: column;
+    position: relative;
+  }
+
+  .anime-list .anime-image {
+    width: 100%;
+    height: 200px;
+  }
+
+  .anime-list .anime-details {
+    width: 100%;
+  }
+
+  .anime-grid {
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  }
+
+  .anime-grid .anime-image {
+    height: 220px;
+  }
+}
+
+@media (min-width: 769px) and (max-width: 1024px) {
+  .anime-grid {
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  }
 }
 </style>
